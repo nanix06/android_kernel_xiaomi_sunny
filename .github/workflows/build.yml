@@ -49,13 +49,21 @@ jobs:
           tar -xf arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu.tar.xz -C toolchains/aarch64-gcc --strip-components=1
           rm arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu.tar.xz
 
-      - name: Ajouter backslashxx KernelSU
+      - name: Ajouter backslashxx KernelSU et appliquer les fixs SELinux
         run: |
           git clone --depth=1 \
             https://github.com/backslashxx/KernelSU.git KernelSU
           ln -s ../KernelSU/kernel drivers/kernelsu
           printf '\nobj-$(CONFIG_KSU) += kernelsu/\n' >> drivers/Makefile
           printf '\nsource "drivers/kernelsu/Kconfig"\n' >> Kconfig
+
+          # 1. Corriger la déclaration manquante de struct selinux_avc
+          if [ -f security/selinux/include/avc_ss_reset.h ]; then
+            sed -i '1i struct selinux_avc;' security/selinux/include/avc_ss_reset.h
+          fi
+
+          # 2. Ignorer l'erreur de pointeurs incompatibles spécifique à Clang dans KernelSU
+          sed -i '1i ccflags-y += -Wno-incompatible-pointer-types -Wno-visibility' drivers/kernelsu/Makefile
           
       - name: Télécharger et appliquer les patchs SuSFS
         run: |
