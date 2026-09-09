@@ -10,7 +10,6 @@ env:
   ARCH: arm64
   SUBARCH: arm64
   DEFCONFIG: neternels_defconfig
-  CROSS_COMPILE: aarch64-linux-gnu-
   CROSS_COMPILE_COMPAT: arm-linux-gnueabi-
 
 jobs:
@@ -31,10 +30,23 @@ jobs:
           sudo apt-get install -y \
             bc bison build-essential ccache flex git libssl-dev \
             libelf-dev pahole python3 rsync unzip wget zip \
-            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
-            gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi \
-            clang lld llvm
- 
+            gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi
+
+      - name: Télécharger et installer Clang & ARM Toolchain
+        run: |
+          mkdir -p toolchains
+          
+          # Clang r383902b
+          wget -q https://github.com/ravindu644/Android-Kernel-Tutorials/releases/download/toolchains/clang-r383902b.tar.gz
+          tar -xzf clang-r383902b.tar.gz -C toolchains/
+          rm clang-r383902b.tar.gz
+
+          # ARM GNU Toolchain 14.2
+          wget -q https://github.com/ravindu644/Android-Kernel-Tutorials/releases/download/toolchains/arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu.tar.xz
+          mkdir -p toolchains/aarch64-gcc
+          tar -xf arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu.tar.xz -C toolchains/aarch64-gcc --strip-components=1
+          rm arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu.tar.xz
+
       - name: Ajouter backslashxx KernelSU
         run: |
           git clone --depth=1 \
@@ -59,13 +71,14 @@ jobs:
 
       - name: Configurer le noyau
         run: |
-          export PATH="$GITHUB_WORKSPACE/clang/bin:$PATH"
+          export PATH="$GITHUB_WORKSPACE/toolchains/bin:$GITHUB_WORKSPACE/toolchains/aarch64-gcc/bin:$PATH"
+          export CROSS_COMPILE="aarch64-none-linux-gnu-"
 
           mkdir -p out
 
           make O=out ARCH=arm64 \
             CC=clang \
-            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CLANG_TRIPLE=aarch64-none-linux-gnu- \
             CROSS_COMPILE="$CROSS_COMPILE" \
             CROSS_COMPILE_COMPAT="$CROSS_COMPILE_COMPAT" \
             LLVM=1 \
@@ -92,7 +105,7 @@ jobs:
 
           make O=out ARCH=arm64 \
             CC=clang \
-            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CLANG_TRIPLE=aarch64-none-linux-gnu- \
             CROSS_COMPILE="$CROSS_COMPILE" \
             CROSS_COMPILE_COMPAT="$CROSS_COMPILE_COMPAT" \
             LLVM=1 \
@@ -101,9 +114,12 @@ jobs:
             
       - name: Compiler le noyau
         run: |
+          export PATH="$GITHUB_WORKSPACE/toolchains/bin:$GITHUB_WORKSPACE/toolchains/aarch64-gcc/bin:$PATH"
+          export CROSS_COMPILE="aarch64-none-linux-gnu-"
+
           make -j"$(nproc)" O=out ARCH=arm64 \
             CC=clang \
-            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CLANG_TRIPLE=aarch64-none-linux-gnu- \
             CROSS_COMPILE="$CROSS_COMPILE" \
             CROSS_COMPILE_COMPAT="$CROSS_COMPILE_COMPAT" \
             LLVM=1 \
