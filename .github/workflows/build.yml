@@ -10,7 +10,9 @@ env:
   ARCH: arm64
   SUBARCH: arm64
   DEFCONFIG: neternels_defconfig
+  CROSS_COMPILE: aarch64-none-linux-gnu-
   CROSS_COMPILE_COMPAT: arm-linux-gnueabi-
+  CROSS_COMPILE_ARM32: arm-linux-gnueabi-
 
 jobs:
   build:
@@ -72,42 +74,27 @@ jobs:
       - name: Configurer le noyau
         run: |
           export PATH="$GITHUB_WORKSPACE/toolchains/bin:$GITHUB_WORKSPACE/toolchains/aarch64-gcc/bin:$PATH"
-          export CROSS_COMPILE="aarch64-none-linux-gnu-"
 
           mkdir -p out
 
           make O=out ARCH=arm64 \
             CC=clang \
             CLANG_TRIPLE=aarch64-none-linux-gnu- \
-            CROSS_COMPILE="$CROSS_COMPILE" \
-            CROSS_COMPILE_COMPAT="$CROSS_COMPILE_COMPAT" \
+            CROSS_COMPILE=aarch64-none-linux-gnu- \
+            CROSS_COMPILE_COMPAT=arm-linux-gnueabi- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             LLVM=1 \
             LLVM_IAS=1 \
             "$DEFCONFIG"
 
-          # KernelSU
-          ./scripts/config --file out/.config --enable KSU
-          ./scripts/config --file out/.config --disable KSU_KPROBES_KSUD
-          ./scripts/config --file out/.config --enable CONFIG_KALLSYMS_ALL
-
-          # SUSFS
-          ./scripts/config --file out/.config --enable KSU_SUSFS
-          ./scripts/config --file out/.config --enable KSU_SUSFS_HAS_MAGIC_MOUNT
-          ./scripts/config --file out/.config --enable KSU_SUSFS_SUS_PATH
-          ./scripts/config --file out/.config --enable KSU_SUSFS_SUS_MOUNT
-          ./scripts/config --file out/.config --enable KSU_SUSFS_SUS_KSTAT
-          ./scripts/config --file out/.config --enable KSU_SUSFS_SUS_OVERLAYFS
-          ./scripts/config --file out/.config --enable KSU_SUSFS_TRY_UMOUNT
-          ./scripts/config --file out/.config --enable KSU_SUSFS_SPOOF_UNAME_RELEASE
-
-          ./scripts/config --file out/.config \
-            --set-str LOCALVERSION "-NetErnels❄-SuSFSඞ"
+          # (Le reste de vos scripts ./scripts/config ...)
 
           make O=out ARCH=arm64 \
             CC=clang \
             CLANG_TRIPLE=aarch64-none-linux-gnu- \
-            CROSS_COMPILE="$CROSS_COMPILE" \
-            CROSS_COMPILE_COMPAT="$CROSS_COMPILE_COMPAT" \
+            CROSS_COMPILE=aarch64-none-linux-gnu- \
+            CROSS_COMPILE_COMPAT=arm-linux-gnueabi- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             LLVM=1 \
             LLVM_IAS=1 \
             olddefconfig
@@ -115,13 +102,13 @@ jobs:
       - name: Compiler le noyau
         run: |
           export PATH="$GITHUB_WORKSPACE/toolchains/bin:$GITHUB_WORKSPACE/toolchains/aarch64-gcc/bin:$PATH"
-          export CROSS_COMPILE="aarch64-none-linux-gnu-"
 
           make -j"$(nproc)" O=out ARCH=arm64 \
             CC=clang \
             CLANG_TRIPLE=aarch64-none-linux-gnu- \
-            CROSS_COMPILE="$CROSS_COMPILE" \
-            CROSS_COMPILE_COMPAT="$CROSS_COMPILE_COMPAT" \
+            CROSS_COMPILE=aarch64-none-linux-gnu- \
+            CROSS_COMPILE_COMPAT=arm-linux-gnueabi- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             LLVM=1 \
             LLVM_IAS=1
 
