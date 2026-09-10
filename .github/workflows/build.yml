@@ -1,4 +1,4 @@
-name: Mojito - STRIX-KernelSU-SUSFS
+name: Mojito - NetErnels-KernelSU-SUSFS
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ permissions:
 env:
   ARCH: arm64
   SUBARCH: arm64
-  DEFCONFIG: mojito_defconfig
+  DEFCONFIG: neternels_defconfig
   CROSS_COMPILE: aarch64-linux-gnu-
   CROSS_COMPILE_COMPAT: arm-linux-gnueabi-
 
@@ -91,7 +91,7 @@ jobs:
           ./scripts/config --file out/.config --enable KSU_SUSFS_SPOOF_UNAME_RELEASE
 
           ./scripts/config --file out/.config \
-            --set-str LOCALVERSION "-STRIX❄-SuSFSඞ"
+            --set-str LOCALVERSION "-NetErnels❄-SuSFSඞ"
 
           make O=out ARCH=arm64 \
             CC=clang \
