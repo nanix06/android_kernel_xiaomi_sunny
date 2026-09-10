@@ -1,4 +1,4 @@
-name: Mojito - Neternels-KernelSU-SUSFS
+name: Mojito - STRIX-KernelSU-SUSFS
 
 on:
   workflow_dispatch:
@@ -9,10 +9,9 @@ permissions:
 env:
   ARCH: arm64
   SUBARCH: arm64
-  DEFCONFIG: neternels_defconfig
-  CROSS_COMPILE: aarch64-none-linux-gnu-
+  DEFCONFIG: mojito_defconfig
+  CROSS_COMPILE: aarch64-linux-gnu-
   CROSS_COMPILE_COMPAT: arm-linux-gnueabi-
-  CROSS_COMPILE_ARM32: arm-linux-gnueabi-
 
 jobs:
   build:
@@ -32,61 +31,29 @@ jobs:
           sudo apt-get install -y \
             bc bison build-essential ccache flex git libssl-dev \
             libelf-dev pahole python3 rsync unzip wget zip \
-            gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi
-
-      - name: Télécharger et installer Clang & ARM Toolchain
-        run: |
-          mkdir -p toolchains
-          
-          # Clang r383902b
-          wget -q https://github.com/ravindu644/Android-Kernel-Tutorials/releases/download/toolchains/clang-r383902b.tar.gz
-          tar -xzf clang-r383902b.tar.gz -C toolchains/
-          rm clang-r383902b.tar.gz
-
-          # ARM GNU Toolchain 14.2
-          wget -q https://github.com/ravindu644/Android-Kernel-Tutorials/releases/download/toolchains/arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu.tar.xz
-          mkdir -p toolchains/aarch64-gcc
-          tar -xf arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu.tar.xz -C toolchains/aarch64-gcc --strip-components=1
-          rm arm-gnu-toolchain-14.2.rel1-x86_64-aarch64-none-linux-gnu.tar.xz
-
-      - name: Ajouter backslashxx KernelSU et appliquer les fixs SELinux
+            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
+            gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi \
+            clang lld llvm
+ 
+      - name: Ajouter backslashxx KernelSU
         run: |
           git clone --depth=1 \
             https://github.com/backslashxx/KernelSU.git KernelSU
           ln -s ../KernelSU/kernel drivers/kernelsu
           printf '\nobj-$(CONFIG_KSU) += kernelsu/\n' >> drivers/Makefile
           printf '\nsource "drivers/kernelsu/Kconfig"\n' >> Kconfig
-
-          # 1. Corriger la déclaration manquante de struct selinux_avc
-          if [ -f security/selinux/include/avc_ss_reset.h ]; then
-            sed -i '1i struct selinux_avc;' security/selinux/include/avc_ss_reset.h
-          fi
-
-          # 2. Ignorer l'erreur de pointeurs incompatibles spécifique à Clang dans KernelSU
-          sed -i '1i ccflags-y += -Wno-incompatible-pointer-types -Wno-visibility' drivers/kernelsu/Makefile
           
       - name: Télécharger et appliquer les patchs SuSFS
         run: |
           git clone --depth=1 -b kernel-4.14 https://github.com/nanix06/susfs4ksu.git susfs
-          
-          # Appliquer les patchs noyau SuSFS
+
+          # 1. Patch du noyau
+          patch -p1 --fuzz=3 < susfs/kernel_patches/kernel-4.14.patch
           patch -p1 --fuzz=3 < susfs/kernel_patches/50_add_susfs_in_kernel-4.14.patch || true
+          patch -p1 --fuzz=3 < susfs/kernel_patches/susfs_fix_nameic.patch || true
           patch -p1 --fuzz=3 < susfs/kernel_patches/55_try_umount_for_susfs.patch || true
 
-          # Injecter les constantes manquantes dans les en-têtes si le patch a échoué sur les headers
-          if ! grep -q "ND_STATE_LAST_SDCARD_SUS_PATH" include/linux/namei.h; then
-            echo '#define ND_STATE_LAST_SDCARD_SUS_PATH 0x8000' >> include/linux/namei.h
-          fi
-
-          if ! grep -q "INODE_STATE_OPEN_REDIRECT" include/linux/fs.h; then
-            echo '#define INODE_STATE_OPEN_REDIRECT 0x40000000' >> include/linux/fs.h
-          fi
-
-          # Correctif vfs_open (au cas où votre noyau 4.14 utilise 2 arguments au lieu de 3)
-          sed -i 's/vfs_open(&nd->path, file, current_cred())/vfs_open(\&nd->path, file)/g' fs/namei.c || true
-          sed -i 's/vfs_open(&path, file, current_cred())/vfs_open(\&path, file)/g' fs/namei.c || true
-
-          # Patch spécifique à KernelSU
+          # 2. Patch spécifique à KernelSU
           cp susfs/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch KernelSU/
           cd KernelSU
           patch -p1 < 10_enable_susfs_for_ksu.patch || true
@@ -94,42 +61,54 @@ jobs:
 
       - name: Configurer le noyau
         run: |
-          export PATH="$GITHUB_WORKSPACE/toolchains/bin:$GITHUB_WORKSPACE/toolchains/aarch64-gcc/bin:$PATH"
+          export PATH="$GITHUB_WORKSPACE/clang/bin:$PATH"
 
           mkdir -p out
 
           make O=out ARCH=arm64 \
             CC=clang \
-            CLANG_TRIPLE=aarch64-none-linux-gnu- \
-            CROSS_COMPILE=aarch64-none-linux-gnu- \
-            CROSS_COMPILE_COMPAT=arm-linux-gnueabi- \
-            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CROSS_COMPILE="$CROSS_COMPILE" \
+            CROSS_COMPILE_COMPAT="$CROSS_COMPILE_COMPAT" \
             LLVM=1 \
             LLVM_IAS=1 \
             "$DEFCONFIG"
 
-          # (Le reste de vos scripts ./scripts/config ...)
+          # KernelSU
+          ./scripts/config --file out/.config --enable KSU
+          ./scripts/config --file out/.config --disable KSU_KPROBES_KSUD
+          ./scripts/config --file out/.config --enable CONFIG_KALLSYMS_ALL
+          ./scripts/config --file out/.config --enable CONFIG_KSU_MANUAL_HOOK
+
+          # SUSFS
+          ./scripts/config --file out/.config --enable KSU_SUSFS
+          ./scripts/config --file out/.config --enable KSU_SUSFS_HAS_MAGIC_MOUNT
+          ./scripts/config --file out/.config --enable KSU_SUSFS_SUS_PATH
+          ./scripts/config --file out/.config --enable KSU_SUSFS_SUS_MOUNT
+          ./scripts/config --file out/.config --enable KSU_SUSFS_SUS_KSTAT
+          ./scripts/config --file out/.config --enable KSU_SUSFS_SUS_OVERLAYFS
+          ./scripts/config --file out/.config --enable KSU_SUSFS_TRY_UMOUNT
+          ./scripts/config --file out/.config --enable KSU_SUSFS_SPOOF_UNAME_RELEASE
+
+          ./scripts/config --file out/.config \
+            --set-str LOCALVERSION "-STRIX❄-SuSFSඞ"
 
           make O=out ARCH=arm64 \
             CC=clang \
-            CLANG_TRIPLE=aarch64-none-linux-gnu- \
-            CROSS_COMPILE=aarch64-none-linux-gnu- \
-            CROSS_COMPILE_COMPAT=arm-linux-gnueabi- \
-            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CROSS_COMPILE="$CROSS_COMPILE" \
+            CROSS_COMPILE_COMPAT="$CROSS_COMPILE_COMPAT" \
             LLVM=1 \
             LLVM_IAS=1 \
             olddefconfig
             
       - name: Compiler le noyau
         run: |
-          export PATH="$GITHUB_WORKSPACE/toolchains/bin:$GITHUB_WORKSPACE/toolchains/aarch64-gcc/bin:$PATH"
-
           make -j"$(nproc)" O=out ARCH=arm64 \
             CC=clang \
-            CLANG_TRIPLE=aarch64-none-linux-gnu- \
-            CROSS_COMPILE=aarch64-none-linux-gnu- \
-            CROSS_COMPILE_COMPAT=arm-linux-gnueabi- \
-            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            CLANG_TRIPLE=aarch64-linux-gnu- \
+            CROSS_COMPILE="$CROSS_COMPILE" \
+            CROSS_COMPILE_COMPAT="$CROSS_COMPILE_COMPAT" \
             LLVM=1 \
             LLVM_IAS=1
 
