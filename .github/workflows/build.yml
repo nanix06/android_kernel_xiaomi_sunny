@@ -34,7 +34,7 @@ jobs:
             gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
             gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi \
             clang lld llvm
- 
+
       - name: Ajouter backslashxx KernelSU
         run: |
           git clone --depth=1 \
@@ -42,7 +42,7 @@ jobs:
           ln -s ../KernelSU/kernel drivers/kernelsu
           printf '\nobj-$(CONFIG_KSU) += kernelsu/\n' >> drivers/Makefile
           printf '\nsource "drivers/kernelsu/Kconfig"\n' >> Kconfig
-          
+
       - name: Télécharger et appliquer les patchs SuSFS
         run: |
           git clone --depth=1 -b kernel-4.14 https://github.com/nanix06/susfs4ksu.git susfs
@@ -80,6 +80,9 @@ jobs:
           ./scripts/config --file out/.config --enable CONFIG_KALLSYMS_ALL
           ./scripts/config --file out/.config --enable CONFIG_KSU_MANUAL_HOOK
 
+          # vDSO 32-bit (clang ne trouve pas d'assembleur ARM32 -> désactivé)
+          ./scripts/config --file out/.config --disable COMPAT_VDSO
+
           # SUSFS
           ./scripts/config --file out/.config --enable KSU_SUSFS
           ./scripts/config --file out/.config --enable KSU_SUSFS_HAS_MAGIC_MOUNT
@@ -101,7 +104,7 @@ jobs:
             LLVM=1 \
             LLVM_IAS=1 \
             olddefconfig
-            
+
       - name: Compiler le noyau
         run: |
           make -j"$(nproc)" O=out ARCH=arm64 \
@@ -120,7 +123,7 @@ jobs:
           cp out/arch/arm64/boot/Image release/ 2>/dev/null || true
           sha256sum release/* > release/SHA256SUMS
 
-      - name: Envoyer l'artefact
+      - name: Envoyer l’artefact
         uses: actions/upload-artifact@v4
         with:
           name: Mojito-STRIX-KernelSU
