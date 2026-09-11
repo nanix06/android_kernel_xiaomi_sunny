@@ -79,6 +79,21 @@ jobs:
           patch -p1 < 10_enable_susfs_for_ksu.patch || true
           cd ..
 
+      - name: Fix wakeup.c (cast int -> void* pour clang)
+        run: |
+          python3 - <<'EOF'
+          import re
+          p = 'drivers/base/power/wakeup.c'
+          s = open(p, encoding='utf-8').read()
+          new, n = re.subn(
+              r'debugfs_create_file\("trace_marker",\s*0220,\s*debugfs_create_dir\("tracing",\s*NULL\),\s*1,\s*NULL\)',
+              'debugfs_create_file("trace_marker", 0220, debugfs_create_dir("tracing", NULL), (void *)1, NULL)',
+              s, count=1)
+          assert n == 1, 'pattern trace_marker introuvable dans wakeup.c'
+          open(p, 'w', encoding='utf-8').write(new)
+          print('wakeup.c patched OK')
+          EOF
+
       - name: Télécharger clang (prébuilt AOSP)
         run: |
           wget -q -O clang.tar.gz "$CLANG_SOURCE"
@@ -151,7 +166,8 @@ jobs:
             CROSS_COMPILE="$CROSS_COMPILE" \
             CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" \
             LLVM=1 \
-            LLVM_IAS=1
+            LLVM_IAS=1 \
+            KCFLAGS="-Wno-int-conversion -Wno-incompatible-function-pointer-types -Wno-missing-prototypes"
 
       - name: Préparer les fichiers
         run: |
