@@ -167,7 +167,7 @@ jobs:
             CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" \
             LLVM=1 \
             LLVM_IAS=1 \
-            KCFLAGS="-march=armv8.2-a -Wno-int-conversion -Wno-incompatible-function-pointer-types -Wno-missing-prototypes -Wno-implicit-function-declaration -Wno-c23-extensions"
+            KCFLAGS="-march=armv8.2-a -Wno-int-conversion -Wno-incompatible-function-pointer-types -Wno-missing-prototypes -Wno-implicit-function-declaration -Wno-c23-extensions -Wno-unused-but-set-variable -Wno-unused-variable -Wno-unused-function"
 
       - name: Préparer les fichiers
         run: |
