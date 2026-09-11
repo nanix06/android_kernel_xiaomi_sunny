@@ -124,6 +124,11 @@ jobs:
 
       - name: Compiler le noyau
         run: |
+          # Fix qcacld-3.0: -Werror dans Kbuild cppflags-y -> warnings upstream = erreurs
+          # Ajouter -Wno-error après le -Werror pour neutraliser les warnings non critiques
+          printf 'cppflags-y += -Wno-error=unused-but-set-variable -Wno-error=unused-variable\n' >> \
+            drivers/staging/qcacld-3.0/Kbuild
+
           make -j"$(nproc)" O=out ARCH=arm64 \
             CC=clang \
             CLANG_TRIPLE=aarch64-linux-gnu- \
@@ -143,6 +148,6 @@ jobs:
       - name: Envoyer l'artefact
         uses: actions/upload-artifact@v4
         with:
-          name: Mojito-STRIX-KernelSU
+          name: Mojito-NetErnels-Ksu-susfs
           path: release/
           if-no-files-found: error
