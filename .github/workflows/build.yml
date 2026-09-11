@@ -141,6 +141,9 @@ jobs:
           ./scripts/config --file out/.config --enable KSU_SUSFS_TRY_UMOUNT
           ./scripts/config --file out/.config --enable KSU_SUSFS_SPOOF_UNAME_RELEASE
 
+          # LSE atomics: clang IAS (cible armv8.0) ne connait pas 'ldapr' -> desactivation
+          ./scripts/config --file out/.config --disable CONFIG_ARM64_LSE_ATOMICS
+
           ./scripts/config --file out/.config \
             --set-str LOCALVERSION "-NetErnels❄-SuSFSඞ"
 
@@ -167,7 +170,7 @@ jobs:
             CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" \
             LLVM=1 \
             LLVM_IAS=1 \
-            KCFLAGS="-Wno-int-conversion -Wno-incompatible-function-pointer-types -Wno-missing-prototypes"
+            KCFLAGS="-Wno-int-conversion -Wno-incompatible-function-pointer-types -Wno-missing-prototypes -Wno-implicit-function-declaration -Wno-c23-extensions"
 
       - name: Préparer les fichiers
         run: |
