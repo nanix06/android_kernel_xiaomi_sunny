@@ -10,8 +10,14 @@ env:
   ARCH: arm64
   SUBARCH: arm64
   DEFCONFIG: neternels_defconfig
-  CROSS_COMPILE: aarch64-linux-gnu-
-  CROSS_COMPILE_ARM32: arm-linux-gnueabi-
+  CROSS_COMPILE: aarch64-linux-android-
+  CROSS_COMPILE_ARM32: arm-linux-androideabi-
+  CLANG_SOURCE: "https://github.com/bachnxuan/aosp_clang_mirror/releases/download/clang-r563880c-13989888/clang-r563880c.tar.gz"
+  GCC_GNU: false
+  GCC_64_SOURCE: "https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9.git"
+  GCC_64_BRANCH: "android12L-release"
+  GCC_32_SOURCE: "https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9.git"
+  GCC_32_BRANCH: "android12L-release"
 
 jobs:
   build:
@@ -30,10 +36,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             bc bison build-essential ccache flex git libssl-dev \
-            libelf-dev pahole python3 rsync unzip wget zip \
-            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
-            gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi \
-            clang lld llvm
+            libelf-dev pahole python3 rsync unzip wget zip
 
       - name: Ajouter backslashxx KernelSU
         run: |
@@ -76,10 +79,23 @@ jobs:
           patch -p1 < 10_enable_susfs_for_ksu.patch || true
           cd ..
 
+      - name: Télécharger clang (prébuilt AOSP)
+        run: |
+          wget -q -O clang.tar.gz "$CLANG_SOURCE"
+          mkdir -p clang
+          tar -xf clang.tar.gz -C clang
+          CLANG_BIN="$(dirname "$(find clang -type f -name clang -executable | grep '/bin/' | head -n1)")"
+          echo "$GITHUB_WORKSPACE/$CLANG_BIN" >> "$GITHUB_PATH"
+
+      - name: Télécharger GCC 4.9 (prébuilt Google)
+        run: |
+          git clone --depth=1 -b "$GCC_64_BRANCH" "$GCC_64_SOURCE" gcc64
+          git clone --depth=1 -b "$GCC_32_BRANCH" "$GCC_32_SOURCE" gcc32
+          echo "$GITHUB_WORKSPACE/gcc64/bin" >> "$GITHUB_PATH"
+          echo "$GITHUB_WORKSPACE/gcc32/bin" >> "$GITHUB_PATH"
+
       - name: Configurer le noyau
         run: |
-          export PATH="$GITHUB_WORKSPACE/clang/bin:$PATH"
-
           mkdir -p out
 
           make O=out ARCH=arm64 \
