@@ -40,6 +40,23 @@ jobs:
           git clone --depth=1 \
             https://github.com/backslashxx/KernelSU.git KernelSU
           ln -s ../KernelSU/kernel drivers/kernelsu
+
+          # Fix 'conflicting types for avc_ss_reset': forward-declare struct selinux_avc
+          # avant le premier #include "avc_ss.h" dans ksu.c, pour unifier la déclaration
+          # d'avc_ss_reset (type file-scope) entre avc_ss_reset.h et selinux/rules.c.
+          python3 - <<'EOF'
+          import re
+          p = 'KernelSU/kernel/ksu.c'
+          s = open(p, encoding='utf-8').read()
+          new, n = re.subn(r'^[ \t]*#include "avc_ss.h"',
+                 'struct selinux_avc;\n#include "avc_ss.h"',
+                 s, count=1, flags=re.M)
+          assert n == 1, 'pattern #include "avc_ss.h" introuvable dans ksu.c'
+          assert 'struct selinux_avc;' in new
+          open(p, 'w', encoding='utf-8').write(new)
+          print('ksu.c patched OK')
+          EOF
+
           printf '\nobj-$(CONFIG_KSU) += kernelsu/\n' >> drivers/Makefile
           printf '\nsource "drivers/kernelsu/Kconfig"\n' >> Kconfig
 
@@ -123,7 +140,7 @@ jobs:
           cp out/arch/arm64/boot/Image release/ 2>/dev/null || true
           sha256sum release/* > release/SHA256SUMS
 
-      - name: Envoyer l’artefact
+      - name: Envoyer l'artefact
         uses: actions/upload-artifact@v4
         with:
           name: Mojito-STRIX-KernelSU
