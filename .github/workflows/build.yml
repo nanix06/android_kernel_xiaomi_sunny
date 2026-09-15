@@ -67,6 +67,23 @@ jobs:
           # 2b. Corriger la déclaration manquante de struct selinux_avc
           sed -i '/^int avc_ss_reset/i struct selinux_avc;' security/selinux/include/avc_ss_reset.h
 
+          # 2c. Supprimer le bloc de code mort de l'ancien inotify_fdinfo (fdinfo.c)
+          python3 - << 'PY'
+          import re
+          p = 'fs/notify/fdinfo.c'
+          s = open(p).read()
+          pat = re.compile(
+              r'(?:[ \t]*/\*\n[ \t]*\* IN_ALL_EVENTS represents all of the mask bits(?:[ \t]*\*[^\n]*\n)*?[ \t]*\*/\n)?'
+              r'[ \t]*u32[ \t]+mask[ \t]*=[ \t]*mark->mask[ \t]*&[ \t]*IN_ALL_EVENTS;[ \t]*\n'
+              r'(?:[ \t]*[^\n]*\n)*?[ \t]*iput\(inode\);[ \t]*\n',
+              re.M
+          )
+          s2, n = pat.subn('', s)
+          if n:
+              open(p, 'w').write(s2)
+          print('fdinfo.c dead-code blocks removed:', n)
+          PY
+
           # 3. Patch spécifique à KernelSU
           cp susfs/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch KernelSU/
           cd KernelSU
@@ -128,6 +145,7 @@ jobs:
             CROSS_COMPILE="$CROSS_COMPILE" \
             CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" \
             CROSS_COMPILE_COMPAT="$CROSS_COMPILE_COMPAT" \
+            KCFLAGS="-Wno-visibility -Wno-unused-but-set-variable" \
             LLVM=1 \
             LLVM_IAS=1
 
