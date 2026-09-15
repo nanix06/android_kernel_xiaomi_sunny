@@ -11,7 +11,7 @@ env:
   SUBARCH: arm64
   DEFCONFIG: neternels_defconfig
   CROSS_COMPILE: aarch64-linux-gnu-
-  CROSS_COMPILE_COMPAT: arm-linux-gnueabi-
+  CROSS_COMPILE_ARM32: arm-linux-gnueabi-
 
 jobs:
   build:
@@ -67,7 +67,7 @@ jobs:
             CC=clang \
             CLANG_TRIPLE=aarch64-linux-gnu- \
             CROSS_COMPILE="$CROSS_COMPILE" \
-            CROSS_COMPILE_COMPAT="$CROSS_COMPILE_COMPAT" \
+            CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" \
             LLVM=1 \
             LLVM_IAS=1 \
             "$DEFCONFIG"
@@ -94,7 +94,7 @@ jobs:
             CC=clang \
             CLANG_TRIPLE=aarch64-linux-gnu- \
             CROSS_COMPILE="$CROSS_COMPILE" \
-            CROSS_COMPILE_COMPAT="$CROSS_COMPILE_COMPAT" \
+            CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" \
             LLVM=1 \
             LLVM_IAS=1 \
             olddefconfig
@@ -105,7 +105,7 @@ jobs:
             CC=clang \
             CLANG_TRIPLE=aarch64-linux-gnu- \
             CROSS_COMPILE="$CROSS_COMPILE" \
-            CROSS_COMPILE_COMPAT="$CROSS_COMPILE_COMPAT" \
+            CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" \
             LLVM=1 \
             LLVM_IAS=1
 
