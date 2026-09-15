@@ -43,7 +43,16 @@ jobs:
           ln -s ../KernelSU/kernel drivers/kernelsu
           printf '\nobj-$(CONFIG_KSU) += kernelsu/\n' >> drivers/Makefile
           printf '\nsource "drivers/kernelsu/Kconfig"\n' >> Kconfig
-          
+
+          # Le kernel cible déclare déjà avc_ss_reset() via
+          # security/selinux/include/avc_ss_reset.h. La redéclaration
+          # extern de KernelSU (branche < 6.4) entre en conflit avec
+          # celle-ci, d'où "conflicting types" / "incompatible pointer
+          # types". On la supprime pour laisser passer la déclaration
+          # du kernel.
+          sed -i 's/extern int avc_ss_reset(struct selinux_avc \*avc, u32 seqno);//' \
+            KernelSU/kernel/selinux/rules.c
+
       - name: Télécharger et appliquer les patchs kernelsu
         run: |
           git clone --depth=1 -b kernel-4.14 https://github.com/nanix06/susfs4ksu.git susfs
