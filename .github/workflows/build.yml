@@ -72,15 +72,14 @@ jobs:
           import re
           p = 'fs/notify/fdinfo.c'
           s = open(p).read()
-          pat = re.compile(
-              r'(?:[ \t]*/\*\n[ \t]*\* IN_ALL_EVENTS represents all of the mask bits(?:[ \t]*\*[^\n]*\n)*?[ \t]*\*/\n)?'
-              r'[ \t]*u32[ \t]+mask[ \t]*=[ \t]*mark->mask[ \t]*&[ \t]*IN_ALL_EVENTS;[ \t]*\n'
-              r'(?:[ \t]*[^\n]*\n)*?[ \t]*iput\(inode\);[ \t]*\n',
-              re.M
-          )
-          s2, n = pat.subn('', s)
+          # 1) retire le commentaire flottant IN_ALL_EVENTS
+          s = re.sub(r'[ \t]*/\*\n[ \t]*\* IN_ALL_EVENTS represents all of the mask bits[\s\S]*?\*/\n', '', s)
+          # 2) retire le bloc mort: u32 mask = mark->mask & IN_ALL_EVENTS; -> iput(inode);
+          s, n = re.subn(r'[ \t]*u32[ \t]+mask[ \t]*=[ \t]*mark->mask[ \t]*&[ \t]*IN_ALL_EVENTS;[ \t]*\n(?:[ \t]*[^\n]*\n)*?[ \t]*iput\(inode\);[ \t]*\n', '', s)
+          # 3) les labels nus suivis de } doivent garder une instruction
+          s = re.sub(r'^([ \t]*[A-Za-z_][A-Za-z0-9_]*:[ \t]*)$(?=[^\n]*\n[ \t]*\})', r'\1 ;', s, flags=re.M)
           if n:
-              open(p, 'w').write(s2)
+              open(p, 'w').write(s)
           print('fdinfo.c dead-code blocks removed:', n)
           PY
 
@@ -145,7 +144,7 @@ jobs:
             CROSS_COMPILE="$CROSS_COMPILE" \
             CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" \
             CROSS_COMPILE_COMPAT="$CROSS_COMPILE_COMPAT" \
-            KCFLAGS="-Wno-visibility -Wno-unused-but-set-variable" \
+            KCFLAGS="-Wno-visibility -Wno-unused-but-set-variable -Wno-int-conversion -Wno-fortify-source" \
             LLVM=1 \
             LLVM_IAS=1
 
