@@ -54,7 +54,20 @@ jobs:
           patch -p1 --fuzz=3 < susfs/kernel_patches/fix_stat.c.patch || true
           patch -p1 --fuzz=3 < susfs/kernel_patches/55_try_umount_for_susfs.patch || true
           
-          # 2. Patch spécifique à KernelSU
+          # 2. Corriger le manque de déclaration inotify_mark_user_mask
+          cat >> fs/notify/inotify/inotify.h << 'PATCH'
+          #define INOTIFY_USER_MASK (IN_ALL_EVENTS | IN_ONESHOT | IN_EXCL_UNLINK)
+
+          static inline __u32 inotify_mark_user_mask(struct fsnotify_mark *fsn_mark)
+          {
+                  return fsn_mark->mask & INOTIFY_USER_MASK;
+          }
+          PATCH
+
+          # 2b. Corriger la déclaration manquante de struct selinux_avc
+          sed -i '/^int avc_ss_reset/i struct selinux_avc;' security/selinux/include/avc_ss_reset.h
+
+          # 3. Patch spécifique à KernelSU
           cp susfs/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch KernelSU/
           cd KernelSU
           patch -p1 < 10_enable_susfs_for_ksu.patch || true
