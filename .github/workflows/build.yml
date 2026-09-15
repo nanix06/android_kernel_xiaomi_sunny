@@ -93,6 +93,9 @@ jobs:
           ./scripts/config --file out/.config \
             --set-str LOCALVERSION "-NetErnels❄-SuSFSඞ"
 
+          # Evite le build cassé du compat vDSO avec LLVM
+          ./scripts/config --file out/.config --disable CONFIG_COMPAT_VDSO
+
           make O=out ARCH=arm64 \
             CC=clang \
             CLANG_TRIPLE=aarch64-linux-gnu- \
