@@ -49,13 +49,6 @@ jobs:
           sed -i 's/get_monotonic_boottime(&ts)/ktime_get_boottime_ts64(\&ts)/' \
             KernelSU/kernel/sulog/event.c
 
-      - name: Télécharger et appliquer les patchs kernelsu
-        run: |
-          git clone --depth=1 -b kernel-4.14 https://github.com/nanix06/susfs4ksu.git su
-
-          # 1. Patch du noyau
-          patch -p1 --fuzz=3 < su/kernel_patches/kernel-4.14.patch
-
       - name: Configurer le noyau
         run: |
           export PATH="$GITHUB_WORKSPACE/clang/bin:$PATH"
@@ -75,6 +68,7 @@ jobs:
           # KernelSU
           ./scripts/config --file out/.config --enable KSU
           ./scripts/config --file out/.config --enable CONFIG_KALLSYMS_ALL
+          ./scripts/config --file out/.config --enable KSU_KPROBES_KSUD
 
           ./scripts/config --file out/.config \
             --set-str LOCALVERSION "-NetErnels"
