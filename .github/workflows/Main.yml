@@ -44,7 +44,9 @@ jobs:
           printf '\nobj-$(CONFIG_KSU) += kernelsu/\n' >> drivers/Makefile
           printf '\nsource "drivers/kernelsu/Kconfig"\n' >> Kconfig
 
-          sed -i 's/extern int avc_ss_reset(struct selinux_avc \*avc, u32 seqno);/struct selinux_avc;/' \
+          sed -i '/extern int avc_ss_reset/d' \
+            KernelSU/kernel/selinux/rules.c
+          sed -i '/#include.*selinux\/rules/a #include "avc_ss_reset.h"' \
             KernelSU/kernel/selinux/rules.c
 
       - name: Télécharger et appliquer les patchs kernelsu
