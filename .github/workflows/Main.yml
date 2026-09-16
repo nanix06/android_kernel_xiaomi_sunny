@@ -44,6 +44,9 @@ jobs:
           printf '\nobj-$(CONFIG_KSU) += kernelsu/\n' >> drivers/Makefile
           printf '\nsource "drivers/kernelsu/Kconfig"\n' >> Kconfig
 
+          sed -i 's/extern int avc_ss_reset(struct selinux_avc \*avc, u32 seqno);/struct selinux_avc;/' \
+            KernelSU/kernel/selinux/rules.c
+
       - name: Télécharger et appliquer les patchs kernelsu
         run: |
           git clone --depth=1 -b kernel-4.14 https://github.com/nanix06/susfs4ksu.git su
