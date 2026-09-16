@@ -1,4 +1,4 @@
-name: Mojito - NetErnels-KernelSU-SUSFS
+name: Mojito - NetErnels-KernelSU-susfs
 
 on:
   workflow_dispatch:
@@ -36,58 +36,30 @@ jobs:
             gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi \
             clang lld llvm
  
-      - name: Ajouter backslashxx KernelSU
+      - name: Télécharger et appliquer les patchs KernelSU et SuSFS
         run: |
-          git clone --depth=1 \
-            https://github.com/backslashxx/KernelSU.git KernelSU
-          ln -s ../KernelSU/kernel drivers/kernelsu
-          printf '\nobj-$(CONFIG_KSU) += kernelsu/\n' >> drivers/Makefile
-          printf '\nsource "drivers/kernelsu/Kconfig"\n' >> Kconfig
-          
-      - name: Télécharger et appliquer les patchs SuSFS
+          git clone --depth=1 -b kernel-4.14 https://github.com/nanix06/susfs4ksu.git su
+          patch -p1 --fuzz=3 < su/kernel_patches/kernelsu-only.patch
+          patch -p1 --fuzz=3 < su/kernel_patches/50_add_susfs_in_kernel-4.14.patch
+          patch -p1 --fuzz=3 < su/kernel_patches/susfs_fix_nameic.patch
+          patch -p1 --fuzz=3 < su/kernel_patches/fix_stat_c.patch
+          patch -p1 --fuzz=3 < su/kernel_patches/55_try_umount_for_susfs.patch
+          sed -i 's/inotify_mark_user_mask(mark)/(mark->mask \& IN_ALL_EVENTS)/g' fs/notify/fdinfo.c
+
+      - name: Ajouter KernelSU-Next
         run: |
-          git clone --depth=1 -b kernel-4.14 https://github.com/nanix06/susfs4ksu.git susfs
+         git clone --depth=1 -b legacy https://github.com/KernelSU-Next/KernelSU-Next.git KernelSU
+         ln -s ../KernelSU/kernel drivers/kernelsu
+         sed -i 's/get_monotonic_boottime(&ts)/ktime_get_boottime_ts64(\&ts)/' KernelSU/kernel/sulog/event.c
+         patch -p1 --fuzz=3 -d KernelSU < su/kernel_patches/susfs_hook_only_official-legacy.patch
+
+
+      - name: Télécharger et appliquer les patchs kernelsu
+        run: |
+          git clone --depth=1 -b kernel-4.14 https://github.com/nanix06/susfs4ksu.git su
           
-          # 1. Patch du noyau
-          patch -p1 --fuzz=3 < susfs/kernel_patches/50_add_susfs_in_kernel-4.14.patch || true
-          patch -p1 --fuzz=3 < susfs/kernel_patches/susfs_fix_nameic.patch || true
-          patch -p1 --fuzz=3 < susfs/kernel_patches/fix_stat.c.patch || true
-          patch -p1 --fuzz=3 < susfs/kernel_patches/55_try_umount_for_susfs.patch || true
-          
-          # 2. Corriger le manque de déclaration inotify_mark_user_mask
-          cat >> fs/notify/inotify/inotify.h << 'PATCH'
-          #define INOTIFY_USER_MASK (IN_ALL_EVENTS | IN_ONESHOT | IN_EXCL_UNLINK)
-
-          static inline __u32 inotify_mark_user_mask(struct fsnotify_mark *fsn_mark)
-          {
-                  return fsn_mark->mask & INOTIFY_USER_MASK;
-          }
-          PATCH
-
-          # 2b. Corriger la déclaration manquante de struct selinux_avc
-          sed -i '/^int avc_ss_reset/i struct selinux_avc;' security/selinux/include/avc_ss_reset.h
-
-          # 2c. Supprimer le bloc de code mort de l'ancien inotify_fdinfo (fdinfo.c)
-          python3 - << 'PY'
-          import re
-          p = 'fs/notify/fdinfo.c'
-          s = open(p).read()
-          # 1) retire le commentaire flottant IN_ALL_EVENTS
-          s = re.sub(r'[ \t]*/\*\n[ \t]*\* IN_ALL_EVENTS represents all of the mask bits[\s\S]*?\*/\n', '', s)
-          # 2) retire le bloc mort: u32 mask = mark->mask & IN_ALL_EVENTS; -> iput(inode);
-          s, n = re.subn(r'[ \t]*u32[ \t]+mask[ \t]*=[ \t]*mark->mask[ \t]*&[ \t]*IN_ALL_EVENTS;[ \t]*\n(?:[ \t]*[^\n]*\n)*?[ \t]*iput\(inode\);[ \t]*\n', '', s)
-          # 3) les labels nus suivis de } doivent garder une instruction
-          s = re.sub(r'^([ \t]*[A-Za-z_][A-Za-z0-9_]*:[ \t]*)$(?=[^\n]*\n[ \t]*\})', r'\1 ;', s, flags=re.M)
-          if n:
-              open(p, 'w').write(s)
-          print('fdinfo.c dead-code blocks removed:', n)
-          PY
-
-          # 3. Patch spécifique à KernelSU
-          cp susfs/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch KernelSU/
-          cd KernelSU
-          patch -p1 < 10_enable_susfs_for_ksu.patch || true
-          cd ..
+          # 1. Patch du noyau 
+          patch -p1 --fuzz=3 < su/kernel_patches/kernelsu-only.patch
 
       - name: Configurer le noyau
         run: |
@@ -107,21 +79,10 @@ jobs:
 
           # KernelSU
           ./scripts/config --file out/.config --enable KSU
-          ./scripts/config --file out/.config --disable KSU_KPROBES_KSUD
           ./scripts/config --file out/.config --enable CONFIG_KALLSYMS_ALL
 
-          # SUSFS
-          ./scripts/config --file out/.config --enable KSU_SUSFS
-          ./scripts/config --file out/.config --enable KSU_SUSFS_HAS_MAGIC_MOUNT
-          ./scripts/config --file out/.config --enable KSU_SUSFS_SUS_PATH
-          ./scripts/config --file out/.config --enable KSU_SUSFS_SUS_MOUNT
-          ./scripts/config --file out/.config --enable KSU_SUSFS_SUS_KSTAT
-          ./scripts/config --file out/.config --enable KSU_SUSFS_SUS_OVERLAYFS
-          ./scripts/config --file out/.config --enable KSU_SUSFS_TRY_UMOUNT
-          ./scripts/config --file out/.config --enable KSU_SUSFS_SPOOF_UNAME_RELEASE
-
           ./scripts/config --file out/.config \
-            --set-str LOCALVERSION "-NetErnels❄-SuSFSඞ"
+            --set-str LOCALVERSION "-NetErnels"
 
           # Evite le build cassé du compat vDSO avec LLVM
           ./scripts/config --file out/.config --disable CONFIG_COMPAT_VDSO
