@@ -38,23 +38,20 @@ jobs:
  
       - name: Ajouter KernelSU-Next
         run: |
-          git clone --depth=1 -b legacy \
-            https://github.com/KernelSU-Next/KernelSU-Next.git KernelSU
+          # Fork androidk26 (legacy-susfs @ 00cb93e) : c'est le module
+          # exactement utilisé par le kernel de référence Redmi-Note-10-
+          # Kernel (submodule KernelSU-Next). tiny_sulog.c utilise
+          # ktime_get_boottime() -> compatible 4.14, pas de sed.
+          git clone --depth=1 -b legacy-susfs \
+            https://github.com/androidk26/KernelSU-Next.git KernelSU
           ln -s ../KernelSU/kernel drivers/kernelsu
-          printf '\nobj-$(CONFIG_KSU) += kernelsu/\n' >> drivers/Makefile
-          printf '\nsource "drivers/kernelsu/Kconfig"\n' >> Kconfig
-
-          # KernelSU-Next legacy vise timespec64, mais ce noyau 4.14
-          # declare get_monotonic_boottime() avec struct timespec (32 bits).
-          sed -i 's/get_monotonic_boottime(&ts)/ktime_get_boottime_ts64(\&ts)/' \
-            KernelSU/kernel/sulog/event.c
 
       - name: Télécharger et appliquer les patchs kernelsu
         run: |
           git clone --depth=1 -b kernel-4.14 https://github.com/nanix06/susfs4ksu.git su
           
           # 1. Patch du noyau
-          patch -p1 --fuzz=3 < su/kernel_patches/kernel-4.14.patch || true
+          patch -p1 --fuzz=3 < su/kernel_patches/kernelsu-only.patch || true
 
       - name: Configurer le noyau
         run: |
@@ -75,7 +72,22 @@ jobs:
           # KernelSU
           ./scripts/config --file out/.config --enable KSU
           ./scripts/config --file out/.config --enable CONFIG_KALLSYMS_ALL
-          ./scripts/config --file out/.config --enable KSU_KPROBES_KSUD
+
+          # Le fork legacy-susfs met KSU_SUSFS a default y, mais ce
+          # noyau n'inclut PAS les sources susfs (fs/susfs.c absent) :
+          # on desactive toutes les options susfs pour eviter des
+          # undefined reference vers les symboles susfs kernel-side.
+          ./scripts/config --file out/.config --disable KSU_SUSFS
+          ./scripts/config --file out/.config --disable KSU_SUSFS_SUS_PATH
+          ./scripts/config --file out/.config --disable KSU_SUSFS_SUS_MOUNT
+          ./scripts/config --file out/.config --disable KSU_SUSFS_SUS_KSTAT
+          ./scripts/config --file out/.config --disable KSU_SUSFS_TRY_UMOUNT
+          ./scripts/config --file out/.config --disable KSU_SUSFS_SPOOF_UNAME
+          ./scripts/config --file out/.config --disable KSU_SUSFS_ENABLE_LOG
+          ./scripts/config --file out/.config --disable KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS
+          ./scripts/config --file out/.config --disable KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
+          ./scripts/config --file out/.config --disable KSU_SUSFS_OPEN_REDIRECT
+          ./scripts/config --file out/.config --disable KSU_SUSFS_SUS_MAP
 
           ./scripts/config --file out/.config \
             --set-str LOCALVERSION "-NetErnels"
