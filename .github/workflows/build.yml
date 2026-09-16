@@ -53,7 +53,7 @@ jobs:
           sed -i 's/get_monotonic_boottime(&ts)/ktime_get_boottime_ts64(\&ts)/' KernelSU/kernel/sulog/event.c
         
           # 2. Patch spécifique à KernelSU
-          cp susfs/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch KernelSU/
+          cp susfs/kernel_patches/KernelSU/susfs_hook_only_official-legacy.patch KernelSU/
           cd KernelSU
           patch -p1 < susfs_hook_only_official-legacy.patch || true
           cd ..
