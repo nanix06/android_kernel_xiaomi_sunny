@@ -74,7 +74,6 @@ jobs:
 
           # KernelSU
           ./scripts/config --file out/.config --enable KSU
-          ./scripts/config --file out/.config --disable KSU_KPROBES_KSUD
           ./scripts/config --file out/.config --enable CONFIG_KALLSYMS_ALL
 
           ./scripts/config --file out/.config \
