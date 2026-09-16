@@ -36,18 +36,13 @@ jobs:
             gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi \
             clang lld llvm
  
-      - name: Ajouter backslashxx KernelSU
+      - name: Ajouter KernelSU-Next
         run: |
-          git clone --depth=1 \
-            https://github.com/backslashxx/KernelSU.git KernelSU
+          git clone --depth=1 -b legacy \
+            https://github.com/KernelSU-Next/KernelSU-Next.git KernelSU
           ln -s ../KernelSU/kernel drivers/kernelsu
           printf '\nobj-$(CONFIG_KSU) += kernelsu/\n' >> drivers/Makefile
           printf '\nsource "drivers/kernelsu/Kconfig"\n' >> Kconfig
-
-          sed -i '/extern int avc_ss_reset/d' \
-            KernelSU/kernel/selinux/rules.c
-          sed -i '/#include.*selinux\/rules/a #include "avc_ss_reset.h"' \
-            KernelSU/kernel/selinux/rules.c
 
       - name: Télécharger et appliquer les patchs kernelsu
         run: |
@@ -76,16 +71,6 @@ jobs:
           ./scripts/config --file out/.config --enable KSU
           ./scripts/config --file out/.config --disable KSU_KPROBES_KSUD
           ./scripts/config --file out/.config --enable CONFIG_KALLSYMS_ALL
-
-          # SUSFS
-          ./scripts/config --file out/.config --enable KSU_SUSFS
-          ./scripts/config --file out/.config --enable KSU_SUSFS_HAS_MAGIC_MOUNT
-          ./scripts/config --file out/.config --enable KSU_SUSFS_SUS_PATH
-          ./scripts/config --file out/.config --enable KSU_SUSFS_SUS_MOUNT
-          ./scripts/config --file out/.config --enable KSU_SUSFS_SUS_KSTAT
-          ./scripts/config --file out/.config --enable KSU_SUSFS_SUS_OVERLAYFS
-          ./scripts/config --file out/.config --enable KSU_SUSFS_TRY_UMOUNT
-          ./scripts/config --file out/.config --enable KSU_SUSFS_SPOOF_UNAME_RELEASE
 
           ./scripts/config --file out/.config \
             --set-str LOCALVERSION "-NetErnels"
