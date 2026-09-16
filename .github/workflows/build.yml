@@ -38,20 +38,25 @@ jobs:
  
       - name: Télécharger et appliquer les patchs KernelSU et SuSFS
         run: |
-          git clone --depth=1 -b kernel-4.14 https://github.com/nanix06/susfs4ksu.git su
-          patch -p1 --fuzz=3 < su/kernel_patches/kernelsu-only.patch || true
-          patch -p1 --fuzz=3 < su/kernel_patches/50_add_susfs_in_kernel-4.14.patch || true
-          patch -p1 --fuzz=3 < su/kernel_patches/susfs_fix_nameic.patch || true
-          patch -p1 --fuzz=3 < su/kernel_patches/fix_stat_c.patch || true
-          patch -p1 --fuzz=3 < su/kernel_patches/55_try_umount_for_susfs.patch || true
+          git clone --depth=1 -b kernel-4.14 https://github.com/nanix06/susfs4ksu.git susfs
+          patch -p1 --fuzz=3 < susfs/kernel_patches/kernelsu-only.patch || true
+          patch -p1 --fuzz=3 < susfs/kernel_patches/50_add_susfs_in_kernel-4.14.patch || true
+          patch -p1 --fuzz=3 < susfs/kernel_patches/susfs_fix_nameic.patch || true
+          patch -p1 --fuzz=3 < susfs/kernel_patches/fix_stat.c.patch || true
+          patch -p1 --fuzz=3 < susfs/kernel_patches/55_try_umount_for_susfs.patch || true
           sed -i 's/inotify_mark_user_mask(mark)/(mark->mask \& IN_ALL_EVENTS)/g' fs/notify/fdinfo.c
 
       - name: Ajouter KernelSU-Next
         run: |
-         git clone --depth=1 -b legacy https://github.com/KernelSU-Next/KernelSU-Next.git KernelSU
-         ln -s ../KernelSU/kernel drivers/kernelsu
-         sed -i 's/get_monotonic_boottime(&ts)/ktime_get_boottime_ts64(\&ts)/' KernelSU/kernel/sulog/event.c
-         patch -p1 --fuzz=3 -d KernelSU < su/kernel_patches/susfs_hook_only_official-legacy.patch || true
+          git clone --depth=1 -b legacy https://github.com/KernelSU-Next/KernelSU-Next.git KernelSU
+          ln -s ../KernelSU/kernel drivers/kernelsu
+          sed -i 's/get_monotonic_boottime(&ts)/ktime_get_boottime_ts64(\&ts)/' KernelSU/kernel/sulog/event.c
+        
+          # 2. Patch spécifique à KernelSU
+          cp susfs/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch KernelSU/
+          cd KernelSU
+          patch -p1 < susfs_hook_only_official-legacy.patch || true
+          cd ..
 
 
       - name: Télécharger et appliquer les patchs kernelsu
