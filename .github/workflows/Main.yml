@@ -44,6 +44,11 @@ jobs:
           printf '\nobj-$(CONFIG_KSU) += kernelsu/\n' >> drivers/Makefile
           printf '\nsource "drivers/kernelsu/Kconfig"\n' >> Kconfig
 
+          # KernelSU-Next legacy vise timespec64, mais ce noyau 4.14
+          # declare get_monotonic_boottime() avec struct timespec (32 bits).
+          sed -i 's/get_monotonic_boottime(&ts)/ktime_get_boottime_ts64(\&ts)/' \
+            KernelSU/kernel/sulog/event.c
+
       - name: Télécharger et appliquer les patchs kernelsu
         run: |
           git clone --depth=1 -b kernel-4.14 https://github.com/nanix06/susfs4ksu.git su
