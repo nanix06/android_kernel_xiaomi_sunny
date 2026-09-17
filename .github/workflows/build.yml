@@ -45,6 +45,7 @@ jobs:
           patch -p1 --fuzz=3 < susfs/kernel_patches/fix_stat.c.patch || true
           patch -p1 --fuzz=3 < susfs/kernel_patches/55_try_umount_for_susfs.patch || true
           sed -i 's/inotify_mark_user_mask(mark)/(mark->mask \& IN_ALL_EVENTS)/g' fs/notify/fdinfo.c
+          sed -i '/^orig_flow:$/a\\t\t;' fs/notify/fdinfo.c
 
       - name: Ajouter KernelSU-Next
         run: |
