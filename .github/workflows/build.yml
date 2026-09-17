@@ -13,12 +13,10 @@ env:
   CROSS_COMPILE: aarch64-linux-gnu-
   CROSS_COMPILE_ARM32: arm-linux-gnueabi-
   CROSS_COMPILE_COMPAT: arm-linux-gnueabi-
-  CCACHE_DIR: ~/.ccache
 
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 120
 
     steps:
       - name: Télécharger le source
@@ -37,15 +35,7 @@ jobs:
             gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
             gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi \
             clang lld llvm
-
-      - name: Configurer ccache
-        uses: actions/cache@v4
-        with:
-          path: ~/.ccache
-          key: ${{ runner.os }}-kernel-ccache-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-kernel-ccache-
-
+ 
       - name: Télécharger et appliquer les patchs KernelSU et SuSFS
         run: |
           git clone --depth=1 -b kernel-4.14 https://github.com/nanix06/susfs4ksu.git susfs
@@ -75,7 +65,7 @@ jobs:
           mkdir -p out
 
           make O=out ARCH=arm64 \
-            CC="ccache clang" \
+            CC=clang \
             CLANG_TRIPLE=aarch64-linux-gnu- \
             CROSS_COMPILE="$CROSS_COMPILE" \
             CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" \
@@ -99,15 +89,16 @@ jobs:
           ./scripts/config --file out/.config --enable KSU_SUSFS_SPOOF_UNAME_RELEASE
           ./scripts/config --file out/.config --enable KSU_SUSFS_SUS_MAP
           ./scripts/config --file out/.config --enable KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
+          
 
           ./scripts/config --file out/.config \
-            --set-str LOCALVERSION "-NetErnels-SuSFS"
+            --set-str LOCALVERSION "-NetErnels"
 
           # Evite le build cassé du compat vDSO avec LLVM
           ./scripts/config --file out/.config --disable CONFIG_COMPAT_VDSO
 
           make O=out ARCH=arm64 \
-            CC="ccache clang" \
+            CC=clang \
             CLANG_TRIPLE=aarch64-linux-gnu- \
             CROSS_COMPILE="$CROSS_COMPILE" \
             CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" \
@@ -118,10 +109,8 @@ jobs:
             
       - name: Compiler le noyau
         run: |
-          ccache -M 5G
-          ccache -z
-          make -j2 O=out ARCH=arm64 \
-            CC="ccache clang" \
+          make -j"$(nproc)" O=out ARCH=arm64 \
+            CC=clang \
             CLANG_TRIPLE=aarch64-linux-gnu- \
             CROSS_COMPILE="$CROSS_COMPILE" \
             CROSS_COMPILE_ARM32="$CROSS_COMPILE_ARM32" \
@@ -129,7 +118,6 @@ jobs:
             KCFLAGS="-Wno-visibility -Wno-unused-but-set-variable -Wno-int-conversion -Wno-fortify-source" \
             LLVM=1 \
             LLVM_IAS=1
-          ccache -s
 
       - name: Préparer les fichiers
         run: |
