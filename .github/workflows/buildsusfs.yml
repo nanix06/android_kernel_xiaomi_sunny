@@ -1,4 +1,4 @@
-name: Mojito - NetErnels-KernelSU-susfs
+name: Mojito - NetErnels-KSUNext-susfs
 
 on:
   workflow_dispatch:
