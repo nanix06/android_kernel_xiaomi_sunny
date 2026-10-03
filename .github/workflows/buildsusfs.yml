@@ -127,7 +127,52 @@ jobs:
           cp out/arch/arm64/boot/Image.gz release/ 2>/dev/null || true
           cp out/arch/arm64/boot/Image.gz-dtb release/ 2>/dev/null || true
           cp out/arch/arm64/boot/Image release/ 2>/dev/null || true
-          sha256sum release/* > release/SHA256SUMS
+
+      - name: Créer boot.img (prêt pour fastboot)
+        env:
+          STOCK_BOOT_URL: ${{ github.event.inputs.stock_boot_url }}
+        run: |
+          set -e
+          mkdir -p bootwork && cd bootwork
+
+          # 1. boot.img stock
+          if [ -n "$STOCK_BOOT_URL" ]; then
+            wget -q -O stock_boot.img "$STOCK_BOOT_URL"
+          elif [ -f "$GITHUB_WORKSPACE/stock_boot/boot.img" ]; then
+            cp "$GITHUB_WORKSPACE/stock_boot/boot.img" stock_boot.img
+          else
+            echo "::error::Aucun boot.img stock : ajoute stock_boot/boot.img au repo ou renseigne stock_boot_url"
+            exit 1
+          fi
+
+          # 2. magiskboot (extrait de l'APK Magisk)
+          wget -q -O magisk.apk https://github.com/topjohnwu/Magisk/releases/download/v27.0/Magisk-v27.0.apk
+          unzip -p magisk.apk lib/x86_64/libmagiskboot.so > magiskboot
+          chmod +x magiskboot
+
+          # 3. Décompresser le boot stock
+          ./magiskboot unpack stock_boot.img
+
+          # 4. Choisir le kernel : si le dtb est séparé (header v2), Image.gz seul ; sinon Image.gz-dtb
+          B="$GITHUB_WORKSPACE/out/arch/arm64/boot"
+          if [ -f dtb ]; then
+            KERNEL="$B/Image.gz"
+          elif [ -f "$B/Image.gz-dtb" ]; then
+            KERNEL="$B/Image.gz-dtb"
+          else
+            KERNEL="$B/Image.gz"
+          fi
+          echo "Kernel utilisé : $KERNEL"
+          cp "$KERNEL" kernel
+
+          # 5. Repack
+          ./magiskboot repack stock_boot.img new-boot.img
+          cp new-boot.img "$GITHUB_WORKSPACE/release/boot.img"
+
+      - name: Checksums
+        run: |
+          cd release
+          sha256sum * > SHA256SUMS
 
       - name: Envoyer l’artefact
         uses: actions/upload-artifact@v4
